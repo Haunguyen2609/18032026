@@ -1,35 +1,40 @@
-let userController = require('../controllers/users')
-let jwt = require('jsonwebtoken')
+let userController = require('../controllers/users');
+let jwt = require('jsonwebtoken');
+let { getPublicKey } = require('./jwt');
+
 module.exports = {
     CheckLogin: async function (req, res, next) {
         try {
-            let token = req.headers.authorization;
-            if (!token) {
-                res.status(404).send({
+            let authorization = req.headers.authorization;
+
+            if (!authorization) {
+                return res.status(401).send({
                     message: "ban chua dang nhap"
-                })
-                return;
+                });
             }
-            let result = jwt.verify(token, "secret")
-            if (result.exp * 1000 < Date.now()) {
-                res.status(404).send({
-                    message: "ban chua dang nhap"
-                })
-                return;
-            }
+
+            let token = authorization.startsWith('Bearer ')
+                ? authorization.split(' ')[1]
+                : authorization;
+
+            let result = jwt.verify(token, getPublicKey(), {
+                algorithms: ['RS256']
+            });
+
             let user = await userController.GetAnUserById(result.id);
-            if (!user) {
-                res.status(404).send({
+
+            if (!user || user.isDeleted) {
+                return res.status(401).send({
                     message: "ban chua dang nhap"
-                })
-                return;
+                });
             }
+
             req.user = user;
-            next()
+            next();
         } catch (error) {
-            res.status(404).send({
+            return res.status(401).send({
                 message: "ban chua dang nhap"
-            })
+            });
         }
     }
-}
+};
